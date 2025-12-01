@@ -46,7 +46,7 @@ services:
       - "traefik.http.services.evoapi.loadbalancer.server.port=8080"
 
   redis:
-    image: redis:latest
+    image: redis:7-alpine
     restart: always
     networks:
       - evolution-net
