@@ -11,7 +11,7 @@ Instala Evolution API + Redis + Postgres detrás de Traefik con SSL automático 
 ## Instalación
 
 ```bash
-git clone https://github.com/alvarocenca/evo-api-installer.git
+git clone https://github.com/alvaro-segunda-cabeza/evo-api-installer.git
 cd evo-api-installer
 chmod +x install.sh
 sudo ./install.sh
