@@ -1,0 +1,100 @@
+version: '3.8'
+
+services:
+  evolution_api:
+    container_name: evolution_api
+    image: evoapicloud/evolution-api:latest
+    restart: always
+    depends_on:
+      - redis
+      - postgres
+    environment:
+      EVOLUTION_API_PORT: 8080
+      EVOLUTION_API_HOST: 0.0.0.0
+      DATABASE_CLIENT: pg
+      DATABASE_PG_HOST: postgres
+      DATABASE_PG_PORT: 5432
+      DATABASE_PG_USER: ${POSTGRES_USER}
+      DATABASE_PG_PASSWORD: ${POSTGRES_PASSWORD}
+      DATABASE_PG_DATABASE: evolution
+      REDIS_URI: redis://redis:6379
+    ports:
+      - "${EVOLUTION_API_PORT}:8080"
+    volumes:
+      - evolution_instances:/evolution/instances
+    networks:
+      - evolution-net
+    env_file:
+      - .env
+    labels:
+      - "traefik.enable=true"
+      - "traefik.http.routers.evoapi.entrypoints=websecure"
+      - "traefik.http.routers.evoapi.rule=Host(`${EVOLUTION_DOMAIN}`)"
+      - "traefik.http.routers.evoapi.tls=true"
+      - "traefik.http.routers.evoapi.tls.certresolver=letsencrypt"
+      - "traefik.http.services.evoapi.loadbalancer.server.port=8080"
+
+  redis:
+    image: redis:latest
+    restart: always
+    networks:
+      - evolution-net
+    container_name: redis
+    command: >
+      redis-server --port 6379 --appendonly yes
+    volumes:
+      - evolution_redis:/data
+    ports:
+      - "${REDIS_PORT}:6379"
+
+  postgres:
+    container_name: postgres
+    image: postgres:15
+    networks:
+      - evolution-net
+    command:
+      ["postgres", "-c", "max_connections=1000", "-c", "listen_addresses=*"]
+    restart: always
+    ports:
+      - "${POSTGRES_PORT}:5432"
+    environment:
+      - POSTGRES_USER=${POSTGRES_USER}
+      - POSTGRES_PASSWORD=${POSTGRES_PASSWORD}
+      - POSTGRES_DB=evolution
+      - POSTGRES_HOST_AUTH_METHOD=trust
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+
+  traefik:
+    image: traefik:v3.1
+    container_name: traefik
+    restart: always
+    command:
+      - "--providers.docker=true"
+      - "--providers.docker.exposedbydefault=false"
+      - "--entrypoints.web.address=:80"
+      - "--entrypoints.websecure.address=:443"
+      - "--certificatesresolvers.letsencrypt.acme.email=${LETSENCRYPT_EMAIL}"
+      - "--certificatesresolvers.letsencrypt.acme.storage=/letsencrypt/acme.json"
+      - "--certificatesresolvers.letsencrypt.acme.httpchallenge=true"
+      - "--certificatesresolvers.letsencrypt.acme.httpchallenge.entrypoint=web"
+      - "--log.level=INFO"
+    ports:
+      - "80:80"
+      - "443:443"
+    volumes:
+      - /var/run/docker.sock:/var/run/docker.sock:ro
+      - traefik_letsencrypt:/letsencrypt
+    networks:
+      - evolution-net
+
+volumes:
+  evolution_instances:
+  evolution_redis:
+  postgres_data:
+  traefik_letsencrypt:
+
+networks:
+  evolution-net:
+    name: evolution-net
+    driver: bridge
