@@ -20,6 +20,13 @@ if [[ -z "${EVOLUTION_DOMAIN}" || -z "${LETSENCRYPT_EMAIL}" ]]; then
   exit 1
 fi
 
+# Generar API Key y contraseñas seguras automáticamente
+EVOLUTION_API_KEY=$(openssl rand -hex 32)
+POSTGRES_PASSWORD=$(openssl rand -hex 16)
+
+echo -e "${GREEN}✓ API Key generada: ${EVOLUTION_API_KEY}${NC}"
+echo -e "${GREEN}✓ PostgreSQL password generada: ${POSTGRES_PASSWORD}${NC}"
+
 # Crear .env si no existe
 if [[ ! -f .env ]]; then
   if [[ -f .env.example ]]; then
@@ -43,23 +50,27 @@ else
   echo "LETSENCRYPT_EMAIL=${LETSENCRYPT_EMAIL}" >> .env
 fi
 
+if grep -q "^EVOLUTION_API_KEY=" .env; then
+  sed -i "s|^EVOLUTION_API_KEY=.*|EVOLUTION_API_KEY=${EVOLUTION_API_KEY}|" .env
+else
+  echo "EVOLUTION_API_KEY=${EVOLUTION_API_KEY}" >> .env
+fi
+
+if grep -q "^POSTGRES_PASSWORD=" .env; then
+  sed -i "s|^POSTGRES_PASSWORD=.*|POSTGRES_PASSWORD=${POSTGRES_PASSWORD}|" .env
+else
+  echo "POSTGRES_PASSWORD=${POSTGRES_PASSWORD}" >> .env
+fi
+
 # Cargar .env
 set -a && source .env && set +a
 
-# Actualizar paquetes e instalar prerequisitos
-echo -e "${YELLOW}Actualizando paquetes del sistema...${NC}"
-sudo apt update -y
-sudo apt install -y \
-  apt-transport-https \
-  ca-certificates \
-  curl \
-  gnupg \
-  lsb-release \
-  netcat-openbsd
-
-# Instalar Docker si no está
+# Verificar Docker y Docker Compose
 if ! command -v docker >/dev/null 2>&1; then
-  echo -e "${YELLOW}Instalando Docker...${NC}"
+  echo -e "${YELLOW}Docker no encontrado. Instalando prerequisitos y Docker...${NC}"
+  sudo apt update -y
+  sudo apt install -y apt-transport-https ca-certificates curl gnupg lsb-release
+  
   curl -fsSL https://download.docker.com/linux/ubuntu/gpg | \
     sudo gpg --dearmor -o /usr/share/keyrings/docker-archive-keyring.gpg
   echo \
@@ -67,21 +78,27 @@ if ! command -v docker >/dev/null 2>&1; then
     https://download.docker.com/linux/ubuntu $(lsb_release -cs) stable" | \
     sudo tee /etc/apt/sources.list.d/docker.list >/dev/null
   sudo apt update -y
-  sudo apt install -y docker-ce docker-ce-cli containerd.io
+  sudo apt install -y docker-ce docker-ce-cli containerd.io docker-compose-plugin
   sudo systemctl enable --now docker
   sudo usermod -aG docker "$USER" || true
-  echo -e "${GREEN}Docker instalado.${NC}"
+  echo -e "${GREEN}✓ Docker y Docker Compose instalados.${NC}"
 else
-  echo -e "${GREEN}Docker ya está instalado.${NC}"
+  echo -e "${GREEN}✓ Docker detectado ($(docker --version)).${NC}"
+  
+  # Solo instalar Docker Compose si falta
+  if ! docker compose version >/dev/null 2>&1; then
+    echo -e "${YELLOW}Instalando Docker Compose plugin...${NC}"
+    sudo apt update -y
+    sudo apt install -y docker-compose-plugin
+    echo -e "${GREEN}✓ Docker Compose instalado.${NC}"
+  else
+    echo -e "${GREEN}✓ Docker Compose detectado ($(docker compose version)).${NC}"
+  fi
 fi
 
-# Instalar plugin Docker Compose si no está
-if ! docker compose version >/dev/null 2>&1; then
-  echo -e "${YELLOW}Instalando Docker Compose plugin...${NC}"
-  sudo apt install -y docker-compose-plugin
-  echo -e "${GREEN}Docker Compose instalado.${NC}"
-else
-  echo -e "${GREEN}Docker Compose ya está instalado.${NC}"
+# Instalar netcat si no está (para verificación de puertos)
+if ! command -v nc >/dev/null 2>&1; then
+  sudo apt install -y netcat-openbsd
 fi
 
 # Levantar stack con docker compose
@@ -110,5 +127,13 @@ check_https() {
 }
 
 check_https
+
+echo -e "${YELLOW}━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━${NC}"
+echo -e "${GREEN}CREDENCIALES DE ACCESO (Guarda esta información):${NC}"
+echo -e "${YELLOW}━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━${NC}"
+echo -e "${GREEN}Evolution API Key:${NC} ${EVOLUTION_API_KEY}"
+echo -e "${GREEN}PostgreSQL Password:${NC} ${POSTGRES_PASSWORD}"
+echo -e "${GREEN}API URL:${NC} https://${EVOLUTION_DOMAIN}"
+echo -e "${YELLOW}━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━${NC}"
 
 echo -e "${YELLOW}Si es la primera vez que usas Docker en este usuario, cierra sesión y vuelve a entrar para aplicar el grupo 'docker'.${NC}"

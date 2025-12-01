@@ -5,8 +5,10 @@ Instala Evolution API + Redis + Postgres detrás de Traefik con SSL automático 
 ## Requisitos
 
 - VPS con Ubuntu 22.04+ (recomendado)
-- Subdominio apuntando por DNS a la IP del servidor (Cloudflare OK, asegurarte de que resuelve a la IP correcta)
+- Subdominio apuntando por DNS a la IP del servidor (Cloudflare OK)
 - Puertos 80 y 443 abiertos hacia el VPS
+- **Recomendado:** Usar imagen de Hetzner con Docker CE preinstalado (más rápido)
+  - Si no tiene Docker, el script lo instalará automáticamente
 
 ## Instalación
 
