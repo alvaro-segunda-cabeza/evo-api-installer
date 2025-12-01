@@ -9,15 +9,28 @@ services:
       - redis
       - postgres
     environment:
-      EVOLUTION_API_PORT: 8080
-      EVOLUTION_API_HOST: 0.0.0.0
-      DATABASE_CLIENT: pg
-      DATABASE_PG_HOST: postgres
-      DATABASE_PG_PORT: 5432
-      DATABASE_PG_USER: ${POSTGRES_USER}
-      DATABASE_PG_PASSWORD: ${POSTGRES_PASSWORD}
-      DATABASE_PG_DATABASE: evolution
+      SERVER_TYPE: http
+      SERVER_PORT: 8080
+      CORS_ORIGIN: "*"
+      CORS_METHODS: "POST,GET,PUT,DELETE"
+      CORS_CREDENTIALS: "true"
+      LOG_LEVEL: ERROR,WARN,DEBUG,INFO,LOG,VERBOSE,DARK,WEBHOOKS
+      DEL_INSTANCE: "false"
+      DATABASE_ENABLED: "true"
+      DATABASE_PROVIDER: postgresql
+      DATABASE_CONNECTION_URI: postgresql://${POSTGRES_USER}:${POSTGRES_PASSWORD}@postgres:5432/evolution?schema=public
+      DATABASE_CONNECTION_CLIENT_NAME: EvolutionAPI
+      DATABASE_SAVE_DATA_INSTANCE: "true"
+      DATABASE_SAVE_DATA_NEW_MESSAGE: "true"
+      DATABASE_SAVE_MESSAGE_UPDATE: "true"
+      DATABASE_SAVE_DATA_CONTACTS: "true"
+      DATABASE_SAVE_DATA_CHATS: "true"
+      REDIS_ENABLED: "true"
       REDIS_URI: redis://redis:6379
+      REDIS_PREFIX_KEY: evolution
+      RABBITMQ_ENABLED: "false"
+      WEBSOCKET_ENABLED: "false"
+      AUTHENTICATION_API_KEY: ${EVOLUTION_API_KEY:-change_this_api_key}
     ports:
       - "${EVOLUTION_API_PORT}:8080"
     volumes:
@@ -66,7 +79,7 @@ services:
       - postgres_data:/var/lib/postgresql/data
 
   traefik:
-    image: traefik:v3.1
+    image: traefik:v2.11
     container_name: traefik
     restart: always
     command:
